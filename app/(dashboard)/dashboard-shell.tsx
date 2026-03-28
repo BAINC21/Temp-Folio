@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, NotificationBell } from "@/components";
 import { NOTIFS } from "@/mock-data";
+import { getLoggedInUser, signOut } from "@/app/actions";
 
 const NAV = [
   { id: "/", label: "Dashboard", d: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" },
@@ -19,26 +20,40 @@ const BILLING = [
 ];
 
 function Icon({ d }: { d: string }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
-  );
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>;
 }
+
+type UserInfo = { id: string; email: string; name: string; brandName: string | null; brandColor: string; plan: string } | null;
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sb, setSb] = useState(false);
+  const [user, setUser] = useState<UserInfo>(null);
+
+  useEffect(() => {
+    getLoggedInUser().then(u => setUser(u as UserInfo));
+  }, [pathname]); // Refresh user data on route change
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
+  const displayName = user?.brandName || user?.name || "User";
+  const initials = (user?.name || "U").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+  const color = user?.brandColor || "#6C5CE7";
+
   return (
     <div className="min-h-screen bg-f-bg text-f-text">
-      {/* Mobile overlay */}
       {sb && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSb(false)} />}
 
-      {/* Sidebar */}
       <aside className={`fixed top-0 bottom-0 w-60 bg-f-surface border-r border-f-border flex flex-col z-40 transition-transform duration-300 ${sb ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
         <div className="px-6 pt-6 pb-4 flex items-center justify-between">
           <Link href="/" className="text-2xl font-bold bg-gradient-to-br from-f-accent to-f-accent-lt bg-clip-text text-transparent font-display">folio</Link>
@@ -57,22 +72,27 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <p className="text-[10px] font-semibold uppercase tracking-[1.5px] text-f-muted px-3 mb-2 mt-5">Billing</p>
           {BILLING.map((b) => (
             <Link key={b.label} href={b.href} onClick={() => setSb(false)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-f-muted hover:bg-f-hover hover:text-f-text transition-all mb-0.5">
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all mb-0.5 ${isActive(b.href) ? "bg-f-accent/15 text-f-accent-lt" : "text-f-muted hover:bg-f-hover hover:text-f-text"}`}>
               <Icon d={b.d} />{b.label}
             </Link>
           ))}
         </nav>
-        <div className="px-4 py-4 border-t border-f-border">
-          <Link href="/settings" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <Avatar text="JD" color="#6C5CE7" />
-            <div><div className="text-sm font-semibold text-f-text">Jane Doe</div><div className="text-[11px] text-f-muted">Pro Plan</div></div>
+        <div className="px-4 py-3 border-t border-f-border">
+          <Link href="/settings" className="flex items-center gap-3 hover:opacity-80 transition-opacity mb-2">
+            <Avatar text={initials} color={color} />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-f-text truncate">{displayName}</div>
+              <div className="text-[11px] text-f-muted">{user?.plan || "Free"} Plan</div>
+            </div>
           </Link>
+          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-f-muted hover:bg-f-hover hover:text-f-text transition-all">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+            Sign Out
+          </button>
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="lg:ml-60 min-h-screen">
-        {/* Mobile header */}
         <div className="sticky top-0 z-20 lg:hidden flex items-center justify-between px-4 py-3 border-b border-f-border" style={{ background: "rgba(15,15,18,0.9)", backdropFilter: "blur(12px)" }}>
           <button onClick={() => setSb(true)} className="p-2 -ml-2 rounded-lg hover:bg-white/[0.06]">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#E8E8ED" strokeWidth="2" strokeLinecap="round"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
@@ -81,7 +101,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <NotificationBell notifications={NOTIFS} />
         </div>
 
-        {/* Desktop notification bar */}
         <div className="hidden lg:flex items-center justify-end px-8 pt-6 pb-2">
           <NotificationBell notifications={NOTIFS} />
         </div>
