@@ -11,13 +11,46 @@ async function getAuthUser() {
   return user;
 }
 
+// Auto-creates Prisma User row if it doesn't exist yet
+async function ensureDbUser() {
+  const authUser = await getAuthUser();
+  const existing = await prisma.user.findUnique({ where: { id: authUser.id } });
+  if (existing) return existing;
+
+  // Create the Prisma row from Supabase auth data
+  return prisma.user.create({
+    data: {
+      id: authUser.id,
+      email: authUser.email!,
+      name: authUser.user_metadata?.name || authUser.email!.split("@")[0],
+    },
+  });
+}
+
+export async function getLoggedInUser() {
+  try {
+    const user = await ensureDbUser();
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      brandName: user.brandName,
+      brandColor: user.brandColor,
+      brandLogoUrl: user.brandLogoUrl,
+      plan: user.plan,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function createProject(data: {
   title: string;
   clientId: string;
   description?: string;
   dueDate?: string;
 }) {
-  const user = await getAuthUser();
+  const user = await ensureDbUser();
 
   const project = await prisma.project.create({
     data: {
@@ -30,7 +63,7 @@ export async function createProject(data: {
   });
 
   revalidatePath("/");
-  return { id: project.id, title: project.title };
+  return { success: true, id: project.id, title: project.title };
 }
 
 export async function createClient(data: {
@@ -38,7 +71,7 @@ export async function createClient(data: {
   email: string;
   company?: string;
 }) {
-  const user = await getAuthUser();
+  const user = await ensureDbUser();
 
   const portalSlug = (data.company || data.name)
     .toLowerCase()
@@ -58,7 +91,7 @@ export async function createClient(data: {
 
   revalidatePath("/clients");
   revalidatePath("/");
-  return { id: client.id, name: client.name };
+  return { success: true, id: client.id, name: client.name, company: client.company };
 }
 
 export async function createInvoice(data: {
@@ -67,11 +100,15 @@ export async function createInvoice(data: {
   dueDate: string;
   description?: string;
 }) {
-  const user = await getAuthUser();
+  const user = await ensureDbUser();
 
   const count = await prisma.invoice.count({ where: { userId: user.id } });
   const invoiceNumber = `INV-${String(count + 1).padStart(4, "0")}`;
   const amountNum = parseFloat(data.amount.replace(/[$,]/g, ""));
+
+  if (isNaN(amountNum) || amountNum <= 0) {
+    throw new Error("Invalid amount");
+  }
 
   const invoice = await prisma.invoice.create({
     data: {
@@ -93,7 +130,7 @@ export async function createInvoice(data: {
 
   revalidatePath("/invoices");
   revalidatePath("/");
-  return { id: invoice.id, invoiceNumber };
+  return { success: true, id: invoice.id, invoiceNumber };
 }
 
 export async function updateSettings(data: {
@@ -101,7 +138,7 @@ export async function updateSettings(data: {
   brandName?: string;
   brandColor?: string;
 }) {
-  const user = await getAuthUser();
+  const user = await ensureDbUser();
 
   const updated = await prisma.user.update({
     where: { id: user.id },
@@ -113,40 +150,16 @@ export async function updateSettings(data: {
   });
 
   revalidatePath("/settings");
-  return { name: updated.name, brandName: updated.brandName, brandColor: updated.brandColor };
-}
-
-export async function getLoggedInUser() {
-  try {
-    const user = await getAuthUser();
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { id: true, email: true, name: true, brandName: true, brandColor: true, brandLogoUrl: true, plan: true },
-    });
-    return dbUser;
-  } catch {
-    return null;
-  }
+  revalidatePath("/");
+  return { success: true, name: updated.name, brandName: updated.brandName, brandColor: updated.brandColor };
 }
 
 export async function getUserClients() {
-  const user = await getAuthUser();
+  const user = await ensureDbUser();
   return prisma.client.findMany({
     where: { userId: user.id },
     include: {
       projects: { select: { id: true, title: true, status: true, progress: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
-export async function getUserInvoices() {
-  const user = await getAuthUser();
-  return prisma.invoice.findMany({
-    where: { userId: user.id },
-    include: {
-      client: { select: { name: true, company: true } },
-      lineItems: true,
     },
     orderBy: { createdAt: "desc" },
   });
