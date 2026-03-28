@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge, Avatar, Modal, DatePicker } from "@/components";
 import { INVOICES, CLIENTS, getClient } from "@/mock-data";
+import { createInvoice } from "@/app/actions";
 
 const ALL_INVOICES = [
   ...INVOICES,
@@ -17,7 +18,12 @@ const FILTERS = ["all", "DRAFT", "SENT", "PAID", "OVERDUE"] as const;
 export default function InvoicesView() {
   const [filter, setFilter] = useState<string>("all");
   const [modal, setModal] = useState(false);
+  const [invClientId, setInvClientId] = useState("");
+  const [invAmount, setInvAmount] = useState("");
   const [invDueDate, setInvDueDate] = useState("");
+  const [invDesc, setInvDesc] = useState("");
+  const [invSaving, setInvSaving] = useState(false);
+  const [invError, setInvError] = useState("");
 
   const filtered = filter === "all" ? ALL_INVOICES : ALL_INVOICES.filter(i => i.status === filter);
 
@@ -103,16 +109,17 @@ export default function InvoicesView() {
       {/* New Invoice Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title="New Invoice">
         <div className="p-6 space-y-4">
+          {invError && <div className="px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">{invError}</div>}
           <div>
             <label className="block text-xs font-semibold text-f-muted mb-1.5">Client</label>
-            <select className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text focus:border-f-accent focus:outline-none appearance-none">
+            <select value={invClientId} onChange={e => setInvClientId(e.target.value)} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text focus:border-f-accent focus:outline-none appearance-none">
               <option value="">Select a client...</option>
               {CLIENTS.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-f-muted mb-1.5">Amount</label>
-            <input type="text" className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none" placeholder="$0.00" />
+            <input type="text" value={invAmount} onChange={e => setInvAmount(e.target.value)} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none" placeholder="$0.00" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-f-muted mb-1.5">Due Date</label>
@@ -120,12 +127,21 @@ export default function InvoicesView() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-f-muted mb-1.5">Description</label>
-            <textarea rows={2} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none resize-none" placeholder="Line item description..." />
+            <textarea rows={2} value={invDesc} onChange={e => setInvDesc(e.target.value)} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none resize-none" placeholder="Line item description..." />
           </div>
         </div>
         <div className="px-6 py-4 border-t border-f-border flex gap-3 justify-end">
           <button onClick={() => setModal(false)} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:text-f-text transition-all">Cancel</button>
-          <button onClick={() => setModal(false)} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all">Create Invoice</button>
+          <button disabled={!invClientId || !invAmount || !invDueDate || invSaving} onClick={async () => {
+            setInvSaving(true); setInvError("");
+            try {
+              await createInvoice({ clientId: invClientId, amount: invAmount, dueDate: invDueDate, description: invDesc || undefined });
+              setModal(false); setInvClientId(""); setInvAmount(""); setInvDueDate(""); setInvDesc("");
+            } catch (err: unknown) { setInvError(err instanceof Error ? err.message : "Failed to create invoice"); }
+            finally { setInvSaving(false); }
+          }} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+            {invSaving ? "Creating..." : "Create Invoice"}
+          </button>
         </div>
       </Modal>
     </>
