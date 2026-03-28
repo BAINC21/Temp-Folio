@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar } from "@/components";
+import { Avatar, Toast } from "@/components";
 import { getLoggedInUser, updateSettings, signOut } from "@/app/actions";
 import { createSupabaseClient } from "@/lib";
 
@@ -24,6 +24,10 @@ export default function SettingsView() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" as "success" | "error" });
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
+    setToast({ show: true, message, type });
+  }, []);
 
   // Password change
   const [currentPw, setCurrentPw] = useState("");
@@ -52,9 +56,11 @@ export default function SettingsView() {
     try {
       await updateSettings({ name, brandName, brandColor });
       setSaved(true);
+      showToast("Settings saved successfully");
       setTimeout(() => setSaved(false), 2000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save");
+      showToast(err instanceof Error ? err.message : "Failed to save", "error");
     } finally {
       setSaving(false);
     }
@@ -277,6 +283,8 @@ export default function SettingsView() {
           </div>
         </div>
       )}
+
+      <Toast message={toast.message} type={toast.type} show={toast.show} onClose={() => setToast(t => ({ ...t, show: false }))} />
     </>
   );
 }
