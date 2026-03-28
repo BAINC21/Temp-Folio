@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Avatar, Badge, Modal } from "@/components";
 import { CLIENTS, PROJECTS } from "@/mock-data";
+import { createClient } from "@/app/actions";
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
@@ -111,16 +112,26 @@ function NewClientForm({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = () => {
-    // TODO: Wire to Prisma
-    console.log("Create client:", { name, email, company });
-    onClose();
+  const handleSubmit = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await createClient({ name, email, company: company || undefined });
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create client");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <>
       <div className="p-6 space-y-4">
+        {error && <div className="px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">{error}</div>}
         <div>
           <label className="block text-xs font-semibold text-f-muted mb-1.5">Contact Name</label>
           <input value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none" placeholder="Alex Morgan" />
@@ -136,7 +147,9 @@ function NewClientForm({ onClose }: { onClose: () => void }) {
       </div>
       <div className="px-6 py-4 border-t border-f-border flex gap-3 justify-end">
         <button onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:text-f-text transition-all">Cancel</button>
-        <button onClick={handleSubmit} disabled={!name || !email} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed">Add Client</button>
+        <button onClick={handleSubmit} disabled={!name || !email || saving} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+          {saving ? "Adding..." : "Add Client"}
+        </button>
       </div>
     </>
   );
