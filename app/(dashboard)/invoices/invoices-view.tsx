@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Avatar, Modal } from "@/components";
+import { Badge, Avatar, Modal, DatePicker } from "@/components";
 import { INVOICES, CLIENTS, getClient } from "@/mock-data";
 
 const ALL_INVOICES = [
@@ -17,6 +17,7 @@ const FILTERS = ["all", "DRAFT", "SENT", "PAID", "OVERDUE"] as const;
 export default function InvoicesView() {
   const [filter, setFilter] = useState<string>("all");
   const [modal, setModal] = useState(false);
+  const [invDueDate, setInvDueDate] = useState("");
 
   const filtered = filter === "all" ? ALL_INVOICES : ALL_INVOICES.filter(i => i.status === filter);
 
@@ -115,7 +116,7 @@ export default function InvoicesView() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-f-muted mb-1.5">Due Date</label>
-            <input type="date" className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text focus:border-f-accent focus:outline-none" />
+            <DatePicker value={invDueDate} onChange={setInvDueDate} placeholder="Select due date" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-f-muted mb-1.5">Description</label>
