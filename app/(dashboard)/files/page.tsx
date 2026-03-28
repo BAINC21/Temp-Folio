@@ -1,1 +1,1 @@
-export { default } from "./clients-view";
+export { default } from "./files-view";
