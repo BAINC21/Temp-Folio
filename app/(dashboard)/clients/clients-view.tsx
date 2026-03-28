@@ -1,21 +1,71 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Avatar, Badge, Modal, Toast } from "@/components";
-import { CLIENTS, PROJECTS } from "@/mock-data";
-import { createClient } from "@/app/actions";
+import { CLIENTS as MOCK_CLIENTS, PROJECTS } from "@/mock-data";
+import { createClient, getUserClients } from "@/app/actions";
+
+type DbClient = {
+  id: string;
+  name: string;
+  email: string;
+  company: string | null;
+  createdAt: Date;
+  projects: Array<{ id: string; title: string; status: string; progress: number }>;
+};
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" as "success" | "error" });
+  const [dbClients, setDbClients] = useState<DbClient[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToast({ show: true, message, type });
   }, []);
 
-  const filtered = CLIENTS.filter(c =>
+  const loadClients = useCallback(async () => {
+    setLoading(true);
+    try {
+      const clients = await getUserClients();
+      setDbClients(clients as unknown as DbClient[]);
+    } catch {
+      // Fall back to empty
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadClients(); }, [loadClients]);
+
+  // Merge mock clients + real DB clients for display
+  const mockCards = MOCK_CLIENTS.map(c => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    company: c.company,
+    avatar: c.avatar,
+    color: c.color,
+    isMock: true,
+    projects: PROJECTS.filter(p => p.clientId === c.id),
+  }));
+
+  const dbCards = dbClients.map(c => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    company: c.company || "",
+    avatar: (c.company || c.name).substring(0, 2).toUpperCase(),
+    color: "#6C5CE7",
+    isMock: false,
+    projects: c.projects || [],
+  }));
+
+  const allClients = [...dbCards, ...mockCards];
+
+  const filtered = allClients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.company.toLowerCase().includes(search.toLowerCase()) ||
     c.email.toLowerCase().includes(search.toLowerCase())
@@ -26,7 +76,7 @@ export default function ClientsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-f-text tracking-tight font-display">Clients</h1>
-          <p className="text-sm text-f-muted mt-1">{CLIENTS.length} total clients</p>
+          <p className="text-sm text-f-muted mt-1">{dbClients.length} saved · {MOCK_CLIENTS.length} demo</p>
         </div>
         <button onClick={() => setModal(true)} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-f-accent shadow-lg shadow-f-accent/25 hover:-translate-y-0.5 transition-all flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
@@ -34,37 +84,46 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      <div className="mb-6">
-        <div className="relative max-w-md">
+      {/* Search + Refresh */}
+      <div className="flex gap-3 mb-6">
+        <div className="relative flex-1 max-w-md">
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8888A0" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
           <input value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-f-surface border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none"
             placeholder="Search clients..." />
         </div>
+        <button onClick={loadClients} disabled={loading}
+          className="px-4 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:border-f-muted hover:text-f-text transition-all flex items-center gap-2 disabled:opacity-50">
+          <svg className={loading ? "animate-spin" : ""} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+          </svg>
+          Refresh
+        </button>
       </div>
 
+      {/* Client cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(c => {
-          const clientProjects = PROJECTS.filter(p => p.clientId === c.id);
-          const activeCount = clientProjects.filter(p => p.status === "ACTIVE" || p.status === "IN_REVIEW").length;
+          const activeCount = c.projects.filter((p: { status: string }) => p.status === "ACTIVE" || p.status === "IN_REVIEW").length;
           return (
-            <div key={c.id} className="bg-f-surface border border-f-border rounded-xl p-5 hover:border-[#3A3A48] hover:-translate-y-0.5 transition-all group">
+            <div key={c.id} className={`bg-f-surface border rounded-xl p-5 hover:border-[#3A3A48] hover:-translate-y-0.5 transition-all group ${c.isMock ? "border-f-border" : "border-f-accent/30"}`}>
+              {!c.isMock && <div className="text-[9px] font-bold text-f-accent mb-2 uppercase tracking-wider">Saved</div>}
               <div className="flex items-start gap-4 mb-4">
                 <Avatar text={c.avatar} color={c.color} size={44} />
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-f-text truncate">{c.company}</h3>
+                  <h3 className="text-sm font-bold text-f-text truncate">{c.company || c.name}</h3>
                   <p className="text-xs text-f-muted truncate">{c.name}</p>
                   <p className="text-xs text-f-muted truncate">{c.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Projects</p><p className="text-lg font-bold text-f-text">{clientProjects.length}</p></div>
+                <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Projects</p><p className="text-lg font-bold text-f-text">{c.projects.length}</p></div>
                 <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Active</p><p className="text-lg font-bold text-f-text">{activeCount}</p></div>
-                <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Status</p><Badge status={activeCount > 0 ? "ACTIVE" : "COMPLETED"} /></div>
+                <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Status</p><Badge status={activeCount > 0 ? "ACTIVE" : c.projects.length > 0 ? "COMPLETED" : "DRAFT"} /></div>
               </div>
-              {clientProjects.length > 0 && (
+              {c.projects.length > 0 && (
                 <div className="space-y-1.5 mb-4">
-                  {clientProjects.slice(0, 2).map(p => (
+                  {c.projects.slice(0, 2).map((p: { id: string; title: string; status: string; progress: number }) => (
                     <Link key={p.id} href={`/project/${p.id}`} className="flex items-center gap-2 text-xs hover:text-f-accent-lt transition-colors">
                       <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: p.status === "OVERDUE" ? "#FF6B6B" : p.status === "IN_REVIEW" ? "#FFB946" : "#6C5CE7" }} />
                       <span className="text-f-text truncate">{p.title}</span>
@@ -85,7 +144,7 @@ export default function ClientsPage() {
       {filtered.length === 0 && <div className="text-center py-16"><p className="text-f-muted text-sm">No clients match &quot;{search}&quot;</p></div>}
 
       <Modal open={modal} onClose={() => setModal(false)} title="Add Client">
-        <NewClientForm onClose={() => setModal(false)} onSuccess={(name) => showToast(`Client "${name}" saved successfully`)} />
+        <NewClientForm onClose={() => setModal(false)} onSuccess={(name) => { showToast(`Client "${name}" saved successfully`); loadClients(); }} />
       </Modal>
 
       <Toast message={toast.message} type={toast.type} show={toast.show} onClose={() => setToast(t => ({ ...t, show: false }))} />
