@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Badge, Avatar, Modal, DatePicker } from "@/components";
+import { useState, useCallback } from "react";
+import { Badge, Avatar, Modal, DatePicker, Toast } from "@/components";
 import { INVOICES, CLIENTS, getClient } from "@/mock-data";
 import { createInvoice } from "@/app/actions";
 
@@ -24,6 +24,10 @@ export default function InvoicesView() {
   const [invDesc, setInvDesc] = useState("");
   const [invSaving, setInvSaving] = useState(false);
   const [invError, setInvError] = useState("");
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" as "success" | "error" });
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
+    setToast({ show: true, message, type });
+  }, []);
 
   const filtered = filter === "all" ? ALL_INVOICES : ALL_INVOICES.filter(i => i.status === filter);
 
@@ -135,8 +139,9 @@ export default function InvoicesView() {
           <button disabled={!invClientId || !invAmount || !invDueDate || invSaving} onClick={async () => {
             setInvSaving(true); setInvError("");
             try {
-              await createInvoice({ clientId: invClientId, amount: invAmount, dueDate: invDueDate, description: invDesc || undefined });
+              const result = await createInvoice({ clientId: invClientId, amount: invAmount, dueDate: invDueDate, description: invDesc || undefined });
               setModal(false); setInvClientId(""); setInvAmount(""); setInvDueDate(""); setInvDesc("");
+              showToast(`Invoice ${result.invoiceNumber} created successfully`);
             } catch (err: unknown) { setInvError(err instanceof Error ? err.message : "Failed to create invoice"); }
             finally { setInvSaving(false); }
           }} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
@@ -144,6 +149,8 @@ export default function InvoicesView() {
           </button>
         </div>
       </Modal>
+
+      <Toast message={toast.message} type={toast.type} show={toast.show} onClose={() => setToast(t => ({ ...t, show: false }))} />
     </>
   );
 }
