@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
-import { Avatar, Badge, Modal } from "@/components";
+import { Avatar, Badge, Modal, Toast } from "@/components";
 import { CLIENTS, PROJECTS } from "@/mock-data";
 import { createClient } from "@/app/actions";
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" as "success" | "error" });
+
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
+    setToast({ show: true, message, type });
+  }, []);
 
   const filtered = CLIENTS.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -29,19 +34,15 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      {/* Search */}
       <div className="mb-6">
         <div className="relative max-w-md">
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8888A0" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
+          <input value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-f-surface border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none"
-            placeholder="Search clients..."
-          />
+            placeholder="Search clients..." />
         </div>
       </div>
 
-      {/* Client cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(c => {
           const clientProjects = PROJECTS.filter(p => p.clientId === c.id);
@@ -57,18 +58,9 @@ export default function ClientsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1">
-                  <p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Projects</p>
-                  <p className="text-lg font-bold text-f-text">{clientProjects.length}</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Active</p>
-                  <p className="text-lg font-bold text-f-text">{activeCount}</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Status</p>
-                  <Badge status={activeCount > 0 ? "ACTIVE" : "COMPLETED"} />
-                </div>
+                <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Projects</p><p className="text-lg font-bold text-f-text">{clientProjects.length}</p></div>
+                <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Active</p><p className="text-lg font-bold text-f-text">{activeCount}</p></div>
+                <div className="flex-1"><p className="text-[10px] text-f-muted font-medium uppercase tracking-wider mb-0.5">Status</p><Badge status={activeCount > 0 ? "ACTIVE" : "COMPLETED"} /></div>
               </div>
               {clientProjects.length > 0 && (
                 <div className="space-y-1.5 mb-4">
@@ -82,33 +74,26 @@ export default function ClientsPage() {
                 </div>
               )}
               <div className="flex gap-2 pt-3 border-t border-f-border/50">
-                <Link href={`/portal/${c.id}`} className="flex-1 text-center px-3 py-2 rounded-lg text-xs font-semibold text-f-muted border border-f-border hover:border-f-muted hover:text-f-text transition-all">
-                  View Portal
-                </Link>
-                <button className="flex-1 text-center px-3 py-2 rounded-lg text-xs font-semibold text-f-accent border border-f-accent/30 hover:bg-f-accent/10 transition-all">
-                  Send Magic Link
-                </button>
+                <Link href={`/portal/${c.id}`} className="flex-1 text-center px-3 py-2 rounded-lg text-xs font-semibold text-f-muted border border-f-border hover:border-f-muted hover:text-f-text transition-all">View Portal</Link>
+                <button className="flex-1 text-center px-3 py-2 rounded-lg text-xs font-semibold text-f-accent border border-f-accent/30 hover:bg-f-accent/10 transition-all">Send Magic Link</button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-f-muted text-sm">No clients match &quot;{search}&quot;</p>
-        </div>
-      )}
+      {filtered.length === 0 && <div className="text-center py-16"><p className="text-f-muted text-sm">No clients match &quot;{search}&quot;</p></div>}
 
-      {/* Add Client Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title="Add Client">
-        <NewClientForm onClose={() => setModal(false)} />
+        <NewClientForm onClose={() => setModal(false)} onSuccess={(name) => showToast(`Client "${name}" saved successfully`)} />
       </Modal>
+
+      <Toast message={toast.message} type={toast.type} show={toast.show} onClose={() => setToast(t => ({ ...t, show: false }))} />
     </>
   );
 }
 
-function NewClientForm({ onClose }: { onClose: () => void }) {
+function NewClientForm({ onClose, onSuccess }: { onClose: () => void; onSuccess: (name: string) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
@@ -119,8 +104,9 @@ function NewClientForm({ onClose }: { onClose: () => void }) {
     setSaving(true);
     setError("");
     try {
-      await createClient({ name, email, company: company || undefined });
+      const result = await createClient({ name, email, company: company || undefined });
       onClose();
+      onSuccess(result.company || result.name);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create client");
     } finally {
