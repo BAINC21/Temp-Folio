@@ -1,18 +1,15 @@
 "use server";
 
-// ═══════════════════════════════════════
-// SERVER ACTIONS — Prisma mutation scaffolding
-// These are ready to wire once auth is connected.
-// Each action should:
-//   1. Get the current user from Supabase session
-//   2. Validate input
-//   3. Run Prisma mutation
-//   4. Revalidate the relevant path
-// ═══════════════════════════════════════
+import { prisma } from "@/lib";
+import { createSupabaseServerClient } from "@/supabase-server";
+import { revalidatePath } from "next/cache";
 
-// import { prisma } from "@/lib";
-// import { createSupabaseServerClient } from "@/supabase-server";
-// import { revalidatePath } from "next/cache";
+async function getAuthUser() {
+  const supabase = createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+  return user;
+}
 
 export async function createProject(data: {
   title: string;
@@ -20,26 +17,20 @@ export async function createProject(data: {
   description?: string;
   dueDate?: string;
 }) {
-  // TODO: Wire to Prisma
-  // const supabase = createSupabaseServerClient();
-  // const { data: { user } } = await supabase.auth.getUser();
-  // if (!user) throw new Error("Unauthorized");
-  //
-  // const project = await prisma.project.create({
-  //   data: {
-  //     title: data.title,
-  //     clientId: data.clientId,
-  //     userId: user.id,
-  //     description: data.description,
-  //     dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-  //   },
-  // });
-  //
-  // revalidatePath("/");
-  // return project;
+  const user = await getAuthUser();
 
-  console.log("createProject:", data);
-  return { id: "mock-" + Date.now(), ...data };
+  const project = await prisma.project.create({
+    data: {
+      title: data.title,
+      clientId: data.clientId,
+      userId: user.id,
+      description: data.description || null,
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+    },
+  });
+
+  revalidatePath("/");
+  return { id: project.id, title: project.title };
 }
 
 export async function createClient(data: {
@@ -47,30 +38,27 @@ export async function createClient(data: {
   email: string;
   company?: string;
 }) {
-  // TODO: Wire to Prisma
-  // const supabase = createSupabaseServerClient();
-  // const { data: { user } } = await supabase.auth.getUser();
-  // if (!user) throw new Error("Unauthorized");
-  //
-  // const portalSlug = data.company
-  //   ? data.company.toLowerCase().replace(/\s+/g, "-")
-  //   : data.email.split("@")[0];
-  //
-  // const client = await prisma.client.create({
-  //   data: {
-  //     name: data.name,
-  //     email: data.email,
-  //     company: data.company,
-  //     userId: user.id,
-  //     portalSlug,
-  //   },
-  // });
-  //
-  // revalidatePath("/clients");
-  // return client;
+  const user = await getAuthUser();
 
-  console.log("createClient:", data);
-  return { id: "mock-" + Date.now(), ...data };
+  const portalSlug = (data.company || data.name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    + "-" + Date.now().toString(36);
+
+  const client = await prisma.client.create({
+    data: {
+      name: data.name,
+      email: data.email,
+      company: data.company || null,
+      userId: user.id,
+      portalSlug,
+    },
+  });
+
+  revalidatePath("/clients");
+  revalidatePath("/");
+  return { id: client.id, name: client.name };
 }
 
 export async function createInvoice(data: {
@@ -79,37 +67,33 @@ export async function createInvoice(data: {
   dueDate: string;
   description?: string;
 }) {
-  // TODO: Wire to Prisma
-  // const supabase = createSupabaseServerClient();
-  // const { data: { user } } = await supabase.auth.getUser();
-  // if (!user) throw new Error("Unauthorized");
-  //
-  // const count = await prisma.invoice.count({ where: { userId: user.id } });
-  // const invoiceNumber = `INV-${String(count + 1).padStart(4, "0")}`;
-  //
-  // const invoice = await prisma.invoice.create({
-  //   data: {
-  //     userId: user.id,
-  //     clientId: data.clientId,
-  //     invoiceNumber,
-  //     amountTotal: parseFloat(data.amount.replace(/[$,]/g, "")),
-  //     dueDate: new Date(data.dueDate),
-  //     lineItems: {
-  //       create: [{
-  //         description: data.description || "Services",
-  //         quantity: 1,
-  //         unitPrice: parseFloat(data.amount.replace(/[$,]/g, "")),
-  //         total: parseFloat(data.amount.replace(/[$,]/g, "")),
-  //       }],
-  //     },
-  //   },
-  // });
-  //
-  // revalidatePath("/invoices");
-  // return invoice;
+  const user = await getAuthUser();
 
-  console.log("createInvoice:", data);
-  return { id: "mock-" + Date.now(), ...data };
+  const count = await prisma.invoice.count({ where: { userId: user.id } });
+  const invoiceNumber = `INV-${String(count + 1).padStart(4, "0")}`;
+  const amountNum = parseFloat(data.amount.replace(/[$,]/g, ""));
+
+  const invoice = await prisma.invoice.create({
+    data: {
+      userId: user.id,
+      clientId: data.clientId,
+      invoiceNumber,
+      amountTotal: amountNum,
+      dueDate: new Date(data.dueDate),
+      lineItems: {
+        create: [{
+          description: data.description || "Services",
+          quantity: 1,
+          unitPrice: amountNum,
+          total: amountNum,
+        }],
+      },
+    },
+  });
+
+  revalidatePath("/invoices");
+  revalidatePath("/");
+  return { id: invoice.id, invoiceNumber };
 }
 
 export async function updateSettings(data: {
@@ -117,23 +101,59 @@ export async function updateSettings(data: {
   brandName?: string;
   brandColor?: string;
 }) {
-  // TODO: Wire to Prisma
-  // const supabase = createSupabaseServerClient();
-  // const { data: { user } } = await supabase.auth.getUser();
-  // if (!user) throw new Error("Unauthorized");
-  //
-  // const updated = await prisma.user.update({
-  //   where: { id: user.id },
-  //   data: {
-  //     name: data.name,
-  //     brandName: data.brandName,
-  //     brandColor: data.brandColor,
-  //   },
-  // });
-  //
-  // revalidatePath("/settings");
-  // return updated;
+  const user = await getAuthUser();
 
-  console.log("updateSettings:", data);
-  return data;
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.brandName !== undefined ? { brandName: data.brandName } : {}),
+      ...(data.brandColor !== undefined ? { brandColor: data.brandColor } : {}),
+    },
+  });
+
+  revalidatePath("/settings");
+  return { name: updated.name, brandName: updated.brandName, brandColor: updated.brandColor };
+}
+
+export async function getLoggedInUser() {
+  try {
+    const user = await getAuthUser();
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, email: true, name: true, brandName: true, brandColor: true, brandLogoUrl: true, plan: true },
+    });
+    return dbUser;
+  } catch {
+    return null;
+  }
+}
+
+export async function getUserClients() {
+  const user = await getAuthUser();
+  return prisma.client.findMany({
+    where: { userId: user.id },
+    include: {
+      projects: { select: { id: true, title: true, status: true, progress: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getUserInvoices() {
+  const user = await getAuthUser();
+  return prisma.invoice.findMany({
+    where: { userId: user.id },
+    include: {
+      client: { select: { name: true, company: true } },
+      lineItems: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function signOut() {
+  const supabase = createSupabaseServerClient();
+  await supabase.auth.signOut();
+  revalidatePath("/", "layout");
 }
