@@ -35,18 +35,39 @@ export default function NotificationsView() {
   const filtered = filter === "unread" ? notifs.filter(n => !n.read) : notifs;
 
   const markAsRead = (id: string) => {
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true, readAt: Date.now() } : n));
   };
 
   const markAllRead = () => {
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+    const now = Date.now();
+    setNotifs(prev => prev.map(n => ({ ...n, read: true, readAt: n.read ? (n as unknown as {readAt:number}).readAt : now })));
     setToast({ show: true, message: "All notifications marked as read", type: "success" });
   };
 
   const clearAll = () => {
     setNotifs([]);
-    setToast({ show: true, message: "All notifications cleared", type: "success" });
+    setToast({ show: true, message: "All notifications permanently cleared", type: "success" });
   };
+
+  // Auto-delete read notifications after 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNotifs(prev => {
+        const now = Date.now();
+        const filtered = prev.filter(n => {
+          if (!n.read) return true;
+          const readAt = (n as unknown as {readAt?:number}).readAt;
+          if (!readAt) return true;
+          return now - readAt < 5 * 60 * 1000; // 5 minutes
+        });
+        if (filtered.length < prev.length) {
+          setToast({ show: true, message: `${prev.length - filtered.length} read notification(s) auto-removed`, type: "success" });
+        }
+        return filtered;
+      });
+    }, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <>
