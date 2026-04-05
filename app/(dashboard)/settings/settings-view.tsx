@@ -188,6 +188,9 @@ export default function SettingsView() {
               ))}
             </div>
           </div>
+          <div className="flex justify-end">
+            <button onClick={() => showToast("Notification preferences saved")} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all">Save Preferences</button>
+          </div>
         </div>
       )}
 
