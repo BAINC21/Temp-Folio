@@ -184,3 +184,58 @@ export async function signOut() {
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
 }
+
+// ─── Magic Links ───
+export async function generateMagicLink(clientId: string) {
+  const user = await ensureDbUser();
+  const client = await prisma.client.findFirst({ where: { id: clientId, userId: user.id } });
+  if (!client) throw new Error("Client not found");
+
+  const token = crypto.randomUUID();
+  const exp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { magicLinkToken: token, magicLinkExp: exp },
+  });
+
+  return { success: true, token, portalSlug: client.portalSlug, expiresAt: exp.toISOString() };
+}
+
+// ─── Portal (no auth required — used by clients) ───
+export async function getPortalData(slug: string) {
+  const client = await prisma.client.findUnique({
+    where: { portalSlug: slug },
+    include: {
+      user: { select: { name: true, brandName: true, brandColor: true, brandLogoUrl: true } },
+      projects: {
+        where: { deletedAt: null },
+        include: {
+          milestones: { orderBy: { sortOrder: "asc" } },
+          files: { where: { category: "DELIVERABLE" }, orderBy: { createdAt: "desc" } },
+        },
+      },
+    },
+  });
+  return client;
+}
+
+export async function validateMagicToken(token: string) {
+  const client = await prisma.client.findUnique({ where: { magicLinkToken: token } });
+  if (!client) return null;
+  if (client.magicLinkExp && client.magicLinkExp < new Date()) return null;
+  // Update last login
+  await prisma.client.update({ where: { id: client.id }, data: { lastLogin: new Date() } });
+  return { portalSlug: client.portalSlug };
+}
+
+export async function approveMilestone(milestoneId: string) {
+  const milestone = await prisma.milestone.findUnique({ where: { id: milestoneId } });
+  if (!milestone) throw new Error("Milestone not found");
+  await prisma.milestone.update({
+    where: { id: milestoneId },
+    data: { completed: true, completedAt: new Date() },
+  });
+  revalidatePath(`/portal`);
+  return { success: true };
+}
