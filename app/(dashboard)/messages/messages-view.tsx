@@ -37,15 +37,9 @@ export default function MessagesView() {
 
   const sendMessage = () => {
     if (!input.trim() || !selectedId) return;
-    const newMsg: Message = { id: `m-${Date.now()}`, text: input.trim(), sender: "user", time: "Just now" };
+    const newMsg: Message = { id: `m-${Date.now()}`, text: input.trim(), sender: "user", time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) };
     setMessages(prev => ({ ...prev, [selectedId]: [...(prev[selectedId] || []), newMsg] }));
     setInput("");
-
-    // Simulate client reply after 2 seconds
-    setTimeout(() => {
-      const reply: Message = { id: `m-${Date.now()}`, text: "Thanks for the update! I'll review and get back to you.", sender: "client", time: "Just now" };
-      setMessages(prev => ({ ...prev, [selectedId]: [...(prev[selectedId] || []), reply] }));
-    }, 2000);
   };
 
   const getInitials = (c: DbClient) => (c.company || c.name).substring(0, 2).toUpperCase();
