@@ -13,16 +13,6 @@ type Notification = {
   readAt?: number;
 };
 
-const INITIAL_NOTIFS: Notification[] = [
-  { id: "n1", text: "Bloom Studio approved logo concepts", detail: "Brand Refresh project milestone approved", time: "12 min ago", type: "success", read: false, link: "/project/p1" },
-  { id: "n2", text: "New comment on TrekFit wireframes", detail: "Sam Rivera left feedback on the mobile app wireframes", time: "Yesterday", type: "warning", read: false, link: "/project/p3" },
-  { id: "n3", text: "Invoice #038 is overdue", detail: "Madre Coffee — $950 was due Mar 20", time: "3 days ago", type: "danger", read: false, link: "/invoices" },
-  { id: "n4", text: "Skyward Ventures paid invoice #041", detail: "$1,500 payment received via Stripe", time: "Yesterday", type: "success", read: true, link: "/payments" },
-  { id: "n5", text: "You uploaded 3 files to Website Redesign", detail: "homepage-final.fig, inner-pages-v2.fig, sitemap.pdf", time: "2 hours ago", type: "info", read: true, link: "/project/p2" },
-  { id: "n6", text: "New client added: BILOP Contr", detail: "Blame Iote — BL@gmail.com", time: "2 days ago", type: "info", read: true, link: "/clients" },
-  { id: "n7", text: "Project deadline approaching", detail: "Brand Refresh due in 3 days — Apr 2, 2026", time: "3 days ago", type: "warning", read: true },
-];
-
 const dotColor = (t: string) =>
   t === "success" ? "bg-emerald-400" : t === "warning" ? "bg-amber-400" : t === "danger" ? "bg-red-400" : "bg-f-accent";
 
@@ -30,7 +20,7 @@ const bgColor = (t: string) =>
   t === "success" ? "bg-emerald-500/5" : t === "warning" ? "bg-amber-500/5" : t === "danger" ? "bg-red-500/5" : "bg-f-accent/5";
 
 export default function NotificationsView() {
-  const [notifs, setNotifs] = useState<Notification[]>(INITIAL_NOTIFS);
+  const [notifs, setNotifs] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [toast, setToast] = useState({ show: false, message: "", type: "success" as "success" | "error" });
 
@@ -45,15 +35,13 @@ export default function NotificationsView() {
 
   const markAllRead = () => {
     const now = Date.now();
-    setNotifs((prev) =>
-      prev.map((n) => ({ ...n, read: true, readAt: n.readAt ?? now }))
-    );
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: true, readAt: n.readAt ?? now })));
     setToast({ show: true, message: "All notifications marked as read", type: "success" });
   };
 
   const clearAll = () => {
     setNotifs([]);
-    setToast({ show: true, message: "All notifications permanently cleared", type: "success" });
+    setToast({ show: true, message: "All notifications cleared", type: "success" });
   };
 
   // Auto-delete read notifications after 5 minutes
@@ -119,15 +107,18 @@ export default function NotificationsView() {
         ))}
       </div>
 
-      {/* Notification list */}
+      {/* List */}
       <div className="bg-f-surface border border-f-border rounded-xl overflow-hidden">
         {filtered.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <svg className="mx-auto mb-3 opacity-30" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#8888A0" strokeWidth="1.5">
+          <div className="px-6 py-16 text-center">
+            <svg className="mx-auto mb-4 opacity-20" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8888A0" strokeWidth="1.2">
               <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
             </svg>
-            <p className="text-f-muted text-sm">
-              {filter === "unread" ? "No unread notifications" : "No notifications"}
+            <p className="text-f-muted text-sm font-medium">
+              {filter === "unread" ? "No unread notifications" : "You're all caught up"}
+            </p>
+            <p className="text-[11px] text-f-muted mt-1 opacity-60">
+              Notifications will appear here as activity happens
             </p>
           </div>
         )}
