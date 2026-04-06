@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { prisma } from "@/lib";
 import { NextResponse } from "next/server";
 
@@ -9,19 +11,24 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=missing_token`);
   }
 
-  const client = await prisma.client.findUnique({ where: { magicLinkToken: token } });
+  try {
+    const client = await prisma.client.findUnique({ where: { magicLinkToken: token } });
 
-  if (!client) {
-    return NextResponse.redirect(`${origin}/login?error=invalid_token`);
+    if (!client) {
+      return NextResponse.redirect(`${origin}/login?error=invalid_token`);
+    }
+
+    if (client.magicLinkExp && client.magicLinkExp < new Date()) {
+      return NextResponse.redirect(`${origin}/login?error=expired_token`);
+    }
+
+    // Update last login
+    await prisma.client.update({ where: { id: client.id }, data: { lastLogin: new Date() } });
+
+    // Redirect to their portal
+    return NextResponse.redirect(`${origin}/portal/${client.portalSlug}`);
+  } catch (err) {
+    console.error("Portal auth error:", err);
+    return NextResponse.redirect(`${origin}/login?error=server_error`);
   }
-
-  if (client.magicLinkExp && client.magicLinkExp < new Date()) {
-    return NextResponse.redirect(`${origin}/login?error=expired_token`);
-  }
-
-  // Update last login
-  await prisma.client.update({ where: { id: client.id }, data: { lastLogin: new Date() } });
-
-  // Redirect to their portal
-  return NextResponse.redirect(`${origin}/portal/${client.portalSlug}`);
 }
