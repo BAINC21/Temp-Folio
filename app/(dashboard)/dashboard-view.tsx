@@ -1,12 +1,12 @@
 "use client";
-
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Badge, Avatar, Sparkline, Modal, progressColor, DatePicker, Toast, ConfirmDialog } from "@/components";
 import { ACTIVITIES, INVOICES, REV, getClient } from "@/mock-data";
 import { createProject, getUserClients, getDashboardData, softDeleteProject } from "@/app/actions";
 
-const dotColor = (t: string) => t === "success" ? "bg-emerald-400" : t === "warning" ? "bg-amber-400" : t === "danger" ? "bg-red-400" : "bg-f-accent";
+const dotColor = (t: string) =>
+  t === "success" ? "bg-emerald-400" : t === "warning" ? "bg-amber-400" : t === "danger" ? "bg-red-400" : "bg-f-accent";
 
 function exportDashboardPDF() {
   const win = window.open("", "_blank");
@@ -21,7 +21,14 @@ function exportDashboardPDF() {
   win.document.close();
 }
 
-type DashProject = { id: string; title: string; status: string; progress: number; dueDate: string | null; client: { id: string; name: string; company: string | null } };
+type DashProject = {
+  id: string;
+  title: string;
+  status: string;
+  progress: number;
+  dueDate: string | null;
+  client: { id: string; name: string; company: string | null };
+};
 
 export default function DashboardView() {
   const [modal, setModal] = useState(false);
@@ -36,17 +43,33 @@ export default function DashboardView() {
   }, []);
 
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await getDashboardData();
-      setProjects(data.projects.map(p => ({
-        ...p, dueDate: p.dueDate ? new Date(p.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
-      })) as unknown as DashProject[]);
-      setStats({ activeProjects: data.activeProjects, clientCount: data.clientCount, revenue: data.revenue, outstanding: data.outstanding });
-    } catch { /* fallback to empty */ }
-    finally { setLoading(false); }
+      setProjects(
+        data.projects.map((p) => ({
+          ...p,
+          dueDate: p.dueDate
+            ? new Date(p.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : null,
+        })) as unknown as DashProject[]
+      );
+      setStats({
+        activeProjects: data.activeProjects,
+        clientCount: data.clientCount,
+        revenue: data.revenue,
+        outstanding: data.outstanding,
+      });
+    } catch {
+      /* fallback to empty */
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -55,7 +78,9 @@ export default function DashboardView() {
       showToast("Project moved to trash (auto-deletes in 30 days)");
       setDeleteId(null);
       loadData();
-    } catch { showToast("Failed to delete project", "error"); }
+    } catch {
+      showToast("Failed to delete project", "error");
+    }
   };
 
   const fmtMoney = (n: number) => `$${n.toLocaleString()}`;
@@ -68,15 +93,40 @@ export default function DashboardView() {
           <h1 className="text-2xl sm:text-3xl font-bold text-f-text tracking-tight font-display">Dashboard</h1>
         </div>
         <div className="flex gap-2.5">
-          <button onClick={loadData} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:border-f-muted hover:text-f-text transition-all">
-            <svg className={loading ? "animate-spin" : ""} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
+          <button
+            onClick={loadData}
+            className="px-3 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:border-f-muted hover:text-f-text transition-all"
+          >
+            <svg
+              className={loading ? "animate-spin" : ""}
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="M23 4v6h-6M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+            </svg>
           </button>
-          <button onClick={exportDashboardPDF} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:border-f-muted hover:text-f-text transition-all flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+          <button
+            onClick={exportDashboardPDF}
+            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:border-f-muted hover:text-f-text transition-all flex items-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+            </svg>
             Export
           </button>
-          <button onClick={() => setModal(true)} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-f-accent shadow-lg shadow-f-accent/25 hover:-translate-y-0.5 transition-all flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
+          <button
+            onClick={() => setModal(true)}
+            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-f-accent shadow-lg shadow-f-accent/25 hover:-translate-y-0.5 transition-all flex items-center gap-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
             New Project
           </button>
         </div>
@@ -90,14 +140,21 @@ export default function DashboardView() {
           { l: "Revenue", v: fmtMoney(stats.revenue), s: "paid invoices", up: true, chart: true },
           { l: "Outstanding", v: fmtMoney(stats.outstanding), s: "unpaid", up: false },
         ].map((s, i) => (
-          <div key={i} className="bg-f-surface border border-f-border rounded-xl p-4 sm:p-5 hover:border-[#3A3A48] hover:-translate-y-0.5 transition-all">
+          <div
+            key={i}
+            className="bg-f-surface border border-f-border rounded-xl p-4 sm:p-5 hover:border-[#3A3A48] hover:-translate-y-0.5 transition-all"
+          >
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] text-f-muted font-medium mb-1.5">{s.l}</p>
                 <p className="text-2xl sm:text-3xl font-bold text-f-text tracking-tight">{s.v}</p>
                 <p className={`text-[11px] font-semibold mt-1 ${s.up ? "text-emerald-400" : "text-red-400"}`}>{s.s}</p>
               </div>
-              {s.chart && <div className="hidden sm:block opacity-70 mt-1"><Sparkline data={REV} /></div>}
+              {s.chart && (
+                <div className="hidden sm:block opacity-70 mt-1">
+                  <Sparkline data={REV} />
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -111,10 +168,15 @@ export default function DashboardView() {
             <span className="text-xs text-f-muted">{projects.length} total</span>
           </div>
           <div className="divide-y divide-f-border/50 max-h-[400px] overflow-y-auto">
-            {projects.length === 0 && !loading && <p className="px-6 py-8 text-sm text-f-muted text-center">No projects yet — create one above</p>}
+            {projects.length === 0 && !loading && (
+              <p className="px-6 py-8 text-sm text-f-muted text-center">No projects yet — create one above</p>
+            )}
             {loading && <p className="px-6 py-8 text-sm text-f-muted text-center">Loading...</p>}
-            {projects.map(p => (
-              <div key={p.id} className="px-4 sm:px-6 py-3.5 flex items-center gap-3 sm:gap-4 hover:bg-f-hover transition-colors group">
+            {projects.map((p) => (
+              <div
+                key={p.id}
+                className="px-4 sm:px-6 py-3.5 flex items-center gap-3 sm:gap-4 hover:bg-f-hover transition-colors group"
+              >
                 <Avatar text={(p.client.company || p.client.name).substring(0, 2).toUpperCase()} color="#6C5CE7" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-f-text truncate">{p.title}</p>
@@ -128,8 +190,14 @@ export default function DashboardView() {
                   <span className="text-xs text-f-muted tabular-nums w-8 text-right">{p.progress}%</span>
                 </div>
                 {p.dueDate && <span className="hidden sm:inline text-sm text-f-muted">{p.dueDate}</span>}
-                <button onClick={() => setDeleteId(p.id)} className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10 text-f-muted hover:text-red-400 transition-all" title="Delete project">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                <button
+                  onClick={() => setDeleteId(p.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10 text-f-muted hover:text-red-400 transition-all"
+                  title="Delete project"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                  </svg>
                 </button>
               </div>
             ))}
@@ -139,38 +207,76 @@ export default function DashboardView() {
         {/* Activity + Invoices (scrollable) */}
         <div className="flex flex-col gap-6">
           <div className="bg-f-surface border border-f-border rounded-xl overflow-hidden">
-            <div className="px-4 sm:px-6 py-4 border-b border-f-border"><h2 className="text-base font-bold text-f-text">Activity</h2></div>
+            <div className="px-4 sm:px-6 py-4 border-b border-f-border">
+              <h2 className="text-base font-bold text-f-text">Activity</h2>
+            </div>
             <div className="divide-y divide-f-border/50 max-h-[220px] overflow-y-auto">
-              {ACTIVITIES.map(a => (
+              {ACTIVITIES.map((a) => (
                 <div key={a.id} className="px-4 sm:px-6 py-3.5 flex gap-3 items-start hover:bg-f-hover transition-colors">
                   <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${dotColor(a.type)}`} />
-                  <div><p className="text-sm text-f-text leading-relaxed"><span className="font-semibold">{a.actor}</span> {a.action}</p><p className="text-[11px] text-f-muted mt-0.5">{a.time}</p></div>
+                  <div>
+                    <p className="text-sm text-f-text leading-relaxed">
+                      <span className="font-semibold">{a.actor}</span> {a.action}
+                    </p>
+                    <p className="text-[11px] text-f-muted mt-0.5">{a.time}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+
           <div className="bg-f-surface border border-f-border rounded-xl overflow-hidden">
-            <div className="px-4 sm:px-6 py-4 border-b border-f-border"><h2 className="text-base font-bold text-f-text">Recent Invoices</h2></div>
+            <div className="px-4 sm:px-6 py-4 border-b border-f-border">
+              <h2 className="text-base font-bold text-f-text">Recent Invoices</h2>
+            </div>
             <div className="divide-y divide-f-border/50 max-h-[220px] overflow-y-auto">
-              {INVOICES.map(inv => { const cl = getClient(inv.cid); return (
-                <div key={inv.id} className="px-4 sm:px-6 py-3.5 flex items-center justify-between hover:bg-f-hover transition-colors">
-                  <div><p className="text-sm font-semibold text-f-text">{cl.company}</p><p className="text-xs text-f-muted">{inv.num} · {inv.date}</p></div>
-                  <div className="text-right"><p className="text-sm font-bold text-f-text">{inv.amt}</p><Badge status={inv.status} /></div>
-                </div>
-              ); })}
+              {INVOICES.map((inv) => {
+                const cl = getClient(inv.cid);
+                return (
+                  <div key={inv.id} className="px-4 sm:px-6 py-3.5 flex items-center justify-between hover:bg-f-hover transition-colors">
+                    <div>
+                      <p className="text-sm font-semibold text-f-text">{cl.company}</p>
+                      <p className="text-xs text-f-muted">
+                        {inv.num} · {inv.date}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-f-text">{inv.amt}</p>
+                      <Badge status={inv.status} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
+      {/* New Project Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title="New Project">
-        <NewProjectForm onClose={() => setModal(false)} onSuccess={(title) => { showToast(`Project "${title}" created successfully`); loadData(); }} />
+        <NewProjectForm
+          onClose={() => setModal(false)}
+          onSuccess={(title) => {
+            setModal(false);
+            showToast(`Project "${title}" created successfully`);
+            loadData();
+          }}
+        />
       </Modal>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete}
-        title="Delete Project?" message="This project will be moved to trash and auto-deleted after 30 days. You can restore it from Settings." />
-
-      <Toast message={toast.message} type={toast.type} show={toast.show} onClose={() => setToast(t => ({ ...t, show: false }))} />
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete Project?"
+        message="This project will be moved to trash and auto-deleted after 30 days. You can restore it from Settings."
+      />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        show={toast.show}
+        onClose={() => setToast((t) => ({ ...t, show: false }))}
+      />
     </>
   );
 }
@@ -185,32 +291,95 @@ function NewProjectForm({ onClose, onSuccess }: { onClose: () => void; onSuccess
   const [dbClients, setDbClients] = useState<Array<{ id: string; name: string; company: string | null }>>([]);
   const [loadingClients, setLoadingClients] = useState(true);
 
-  useEffect(() => { getUserClients().then(c => { setDbClients(c); setLoadingClients(false); }).catch(() => setLoadingClients(false)); }, []);
+  useEffect(() => {
+    getUserClients()
+      .then((c) => {
+        setDbClients(c);
+        setLoadingClients(false);
+      })
+      .catch(() => setLoadingClients(false));
+  }, []);
 
   const handleSubmit = async () => {
-    setSaving(true); setError("");
-    try { const result = await createProject({ title, clientId, description: description || undefined, dueDate: dueDate || undefined }); onClose(); onSuccess(result.title); }
-    catch (err: unknown) { setError(err instanceof Error ? err.message : "Failed to create project"); }
-    finally { setSaving(false); }
+    setSaving(true);
+    setError("");
+    try {
+      const result = await createProject({
+        title,
+        clientId,
+        description: description || undefined,
+        dueDate: dueDate || undefined,
+      });
+      // onSuccess handles closing modal + toast + reload
+      onSuccess(result.title);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create project");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <>
       <div className="p-6 space-y-4">
-        {error && <div className="px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">{error}</div>}
-        <div><label className="block text-xs font-semibold text-f-muted mb-1.5">Project Name</label><input value={title} onChange={e => setTitle(e.target.value)} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none" placeholder="e.g. Brand Refresh" /></div>
-        <div><label className="block text-xs font-semibold text-f-muted mb-1.5">Client</label>
-          <select value={clientId} onChange={e => setClientId(e.target.value)} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text focus:border-f-accent focus:outline-none appearance-none">
-            <option value="">{loadingClients ? "Loading clients..." : dbClients.length === 0 ? "No clients — add one first" : "Select a client..."}</option>
-            {dbClients.map(c => <option key={c.id} value={c.id}>{c.company || c.name}</option>)}
+        {error && (
+          <div className="px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">{error}</div>
+        )}
+        <div>
+          <label className="block text-xs font-semibold text-f-muted mb-1.5">Project Name</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none"
+            placeholder="e.g. Brand Refresh"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-f-muted mb-1.5">Client</label>
+          <select
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text focus:border-f-accent focus:outline-none appearance-none"
+          >
+            <option value="">
+              {loadingClients ? "Loading clients..." : dbClients.length === 0 ? "No clients — add one first" : "Select a client..."}
+            </option>
+            {dbClients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.company || c.name}
+              </option>
+            ))}
           </select>
         </div>
-        <div><label className="block text-xs font-semibold text-f-muted mb-1.5">Description</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none resize-none" placeholder="Brief project description..." /></div>
-        <div><label className="block text-xs font-semibold text-f-muted mb-1.5">Due Date</label><DatePicker value={dueDate} onChange={setDueDate} placeholder="Select due date" /></div>
+        <div>
+          <label className="block text-xs font-semibold text-f-muted mb-1.5">Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="w-full px-4 py-2.5 rounded-lg bg-f-bg border border-f-border text-sm text-f-text placeholder-[#555] focus:border-f-accent focus:outline-none resize-none"
+            placeholder="Brief project description..."
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-f-muted mb-1.5">Due Date</label>
+          <DatePicker value={dueDate} onChange={setDueDate} placeholder="Select due date" />
+        </div>
       </div>
       <div className="px-6 py-4 border-t border-f-border flex gap-3 justify-end">
-        <button onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:text-f-text transition-all">Cancel</button>
-        <button onClick={handleSubmit} disabled={!title || !clientId || saving} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed">{saving ? "Creating..." : "Create Project"}</button>
+        <button
+          onClick={onClose}
+          className="px-4 py-2.5 rounded-lg text-sm font-semibold text-f-muted border border-f-border hover:text-f-text transition-all"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={!title || !clientId || saving}
+          className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-f-accent shadow-lg shadow-f-accent/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {saving ? "Creating..." : "Create Project"}
+        </button>
       </div>
     </>
   );
